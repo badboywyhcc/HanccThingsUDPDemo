@@ -27,28 +27,10 @@ public class HanccThingsDataFrameParse {
             return false;
         }
     }
-    public static void parseFrameData(DatagramPacket packet){
-        String receiveStr = bytesToHexString(packet);
-        HanccThingsLogger.Debug(TAG,"来自IP:"+ packet.getAddress().getHostAddress()+"   PORT:"+packet.getPort()+"   数据:"+receiveStr+"    数据长度:"+packet.getLength());
+    public static HanccThings5AProtocolFrameBean parseFrameData(DatagramPacket packet){
 
         HanccThings5AProtocolFrameBean deviceFrameBean = new HanccThings5AProtocolFrameBean(packet.getData());
+        return deviceFrameBean;
     }
 
-
-    /**
-     * 数组转换成十六进制字符串
-     */
-    public static final String bytesToHexString(DatagramPacket packet) {
-        byte[] bArray = packet.getData();
-        StringBuffer sb = new StringBuffer(bArray.length);
-        String sTemp;
-        for (int i = 0; i < bArray.length; i++) {
-            sTemp = Integer.toHexString(0xFF & bArray[i]);
-            if (sTemp.length() < 2)
-                sb.append(0);
-            sb.append(sTemp.toUpperCase());
-        }
-        String resultStr = sb.toString().substring(0,packet.getLength()*2);
-        return resultStr;
-    }
 }
