@@ -1,8 +1,13 @@
+import HanccThingsDataConvertPackage.HanccThingsDataChannelProtocolFrameBean;
+import HanccThingsDataConvertPackage.HanccThingsDataChannelProtocolFrameParse;
+import HanccThingsDataFrameUtilPackage.HanccThingsStringByteArrayUtil;
+
 import java.io.IOException;
 import java.net.*;
 
 public class HanccThingsUDPClient {
-    private final int RECEIVEBUFFERSIZE = 2048;
+    private static final int RECEIVEBUFFERSIZE = 1024;
+    private static final int SERVERPORT = 8899;
 
     public interface UDPClientCallBack{
         /**
@@ -12,37 +17,46 @@ public class HanccThingsUDPClient {
         public void receivePacket(DatagramPacket packet);
     }
 
-    private DatagramSocket client;
-    private UDPClientCallBack callBack;
+    public DatagramSocket client;
 
     public HanccThingsUDPClient() {
         try {
             // 创建发送端对象
             this.client = new DatagramSocket();
-            // 发送
         } catch (SocketException e) {
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
-    public HanccThingsUDPClient(UDPClientCallBack callBack) {
+    /**
+     * 停止业务
+     */
+    public void stopBusiness(){
+        this.client.close();
+    }
+
+    /**
+     * 发送数据
+     * @param buf
+     * @param address
+     * @param port
+     */
+    public void sendData(byte buf[], InetAddress address, int port,UDPClientCallBack callBack){
         try {
-            // 创建发送端对象
-            this.client = new DatagramSocket();
-            this.callBack = callBack;
+            DatagramPacket sendPacket = new DatagramPacket(buf, buf.length, address, port);
+            this.client.send(sendPacket);
+
+            /*** 接收数据***/
             byte[] receBuf = new byte[RECEIVEBUFFERSIZE];
             DatagramPacket recePacket = new DatagramPacket(receBuf, receBuf.length);
-            this.callBack.receivePacket(recePacket);
-            // 发送
-        } catch (SocketException e) {
-            e.printStackTrace();
+            this.client.receive(recePacket);
+            callBack.receivePacket(recePacket);
+
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
-
-
     /**
      * 发送数据
      * @param buf
@@ -58,26 +72,62 @@ public class HanccThingsUDPClient {
         }
     }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    /*
+     *  运行HanccThingsUDPManager 中的main方法  启动HanccThingsUDPManager业务(该业务主要是开启服务端接收并解析协议数据并返回指定协议数据)。然后 运行HanccThingsUDPClient 中的main方法启动单纯的客户端测试业务.
+     *
+     * */
     public static void main(String[] args) {
 
-        byte[] cmd8200 = new byte[]{
-                0x05,                                           // 1
-                0x00, 0x26,                                     // 2
-                0x02,                                           // 1
-                (byte)0xff,                                     // 1
-                0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, // 8
-                0x01, 0x00, 0x00, 0x00, 0x00, 0x06,             // 6
-                0x02, 0x00, 0x00, 0x02,                         // 4
-                0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, // 8
-                (byte)0x92, 0x00,                               // 2
-                0x01, 0x02, 0x03, 0x04,                         // n
-                (byte)0x92, 0x00                                // 2
-        };
+        HanccThingsDataChannelProtocolFrameBean deviceBean = new HanccThingsDataChannelProtocolFrameBean();
+        deviceBean.Frame_flag         = 0x05;
+        deviceBean.Frame_version      = 0x02;
+        deviceBean.Frame_type         = 0xff;
 
+        deviceBean.Frame_deviceEncode = "0102030405060708";
+        deviceBean.Frame_deviceMAC    = "010203040506";
+        deviceBean.Frame_packetNum    = 33554434;
+        deviceBean.Frame_reserveField = new byte[8];
+        deviceBean.Frame_command      = 0x9200;
+        deviceBean.Frame_dataBody     = new byte[]{0x01, 0x02, 0x03, 0x04, 0x05};
+        byte[] desData = HanccThingsDataChannelProtocolFrameParse.parseFrameBean(deviceBean);
+
+
+        /**
+         * 初始化UDPClient
+         */
         HanccThingsUDPClient UDPClient = new HanccThingsUDPClient();
         try {
-            UDPClient.sendData(cmd8200, InetAddress.getLocalHost(), 8899);
+            UDPClient.sendData(desData, InetAddress.getLocalHost(), SERVERPORT,new HanccThingsUDPClient.UDPClientCallBack(){
+                @Override
+                public void receivePacket(DatagramPacket packet) {
+                    String receStr = new String(packet.getData(), 0 , packet.getLength());
+                    System.out.println("来自服务端IP:"+packet.getAddress()+"    端口:"+packet.getPort()+"    回应长度:"+packet.getLength()+"       数据:"+ HanccThingsStringByteArrayUtil.ByteToHexString(packet));
+
+                    /* 在此接收完毕关闭监听 */
+                    UDPClient.stopBusiness();
+                }
+            });
+
         } catch (UnknownHostException e){
+            e.printStackTrace();
         }
     }
 }

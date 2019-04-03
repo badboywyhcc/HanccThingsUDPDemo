@@ -1,7 +1,10 @@
+package UDPTestPackage;
+
 import java.io.IOException;
 import java.net.*;
 
 public class UDPServer {
+    //  UDP服务端测试
     public static void main(String[] args) {
         new Thread() {
             public void run() {

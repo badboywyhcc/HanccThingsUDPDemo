@@ -1,8 +1,12 @@
+package UDPTestPackage;
+
 import java.io.IOException;
 import java.net.*;
 
 public class UDPClient {
 
+
+    //  UDP客户端测试
     public static void main(String[] args) {
         try {
             byte[] transDataByte = {0x08,0x04,0x03,0x02,0x01,0x00,0x05,0x04,0x03,0x02,0x01,0x00};

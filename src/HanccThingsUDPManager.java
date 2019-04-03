@@ -1,15 +1,14 @@
-import java.io.IOException;
+import HanccThingsDataConvertPackage.HanccThingsDataChannelProtocolFrameBean;
+import HanccThingsDataConvertPackage.HanccThingsDataChannelProtocolFrameParse;
+
 import java.net.DatagramPacket;
-import java.net.DatagramSocket;
-import java.net.SocketException;
-import java.util.Arrays;
 
 public class HanccThingsUDPManager {
 
     private HanccThingsUDPServer UDPServer;
     private static final String TAG = HanccThingsUDPManager.class.getSimpleName();
     private static final int    SERVERPORT = 8899;
-    private static final int    BUFFERSIZE = 256;
+    private static final int    BUFFERSIZE = 1024;
 
     private static HanccThingsUDPManager UDPManager = null;
 
@@ -39,14 +38,13 @@ public class HanccThingsUDPManager {
      * 初始化业务
      */
     public void initBusiness(){
-        try {
-            DatagramSocket serverSocket = new DatagramSocket(SERVERPORT);
+
             // 初始化 UDP 服务端
-            this.UDPServer = new HanccThingsUDPServer(serverSocket,BUFFERSIZE,new HanccThingsUDPServer.UDPServerCallBack(){
+            this.UDPServer = new HanccThingsUDPServer(SERVERPORT,BUFFERSIZE,new HanccThingsUDPServer.UDPServerCallBack(){
                 // 返回数据回调
                 @Override
                 public void receivePacket(DatagramPacket packet){
-                    if (true == HanccThingsDataFrameParse.parseFrameFlag(packet)){
+                    if (true == parseFrameFlag(packet)){
                         parseFrameData(packet);
                     }else{
                         System.out.println("非标协议格式");
@@ -55,40 +53,56 @@ public class HanccThingsUDPManager {
                 // 接收数据终止回调
                 @Override
                 public void receiveTerminate(HanccThingsUDPStatusType UDPStatusType) {
-                    HanccThingsLogger.Debug(TAG,UDPStatusType.getCode()+UDPStatusType.msg);
+                    System.out.println(UDPStatusType.getCode()+UDPStatusType.msg);
                 }
             });
-        } catch (SocketException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
     }
 
+    /**
+     * 判断前导码
+     * @param packet
+     * @return
+     */
+    public  boolean parseFrameFlag(DatagramPacket packet){
+        byte[] buf = packet.getData();
+        if (buf[0] == 0x05) {
+            return true;
+        }else{
+            return false;
+        }
+    }
     /**
      * 处理协议数据
      * @param packet
      */
     public void parseFrameData(DatagramPacket packet){
-        HanccThings5AProtocolFrameBean deviceFrameBean = HanccThingsDataFrameParse.parseFrameData(packet);
-        System.out.println("🍉:"+deviceFrameBean.Frame_flag);            // 协议头
-        System.out.println("🍉:"+deviceFrameBean.Frame_dataLen);         // 数据长度
-        System.out.println("🍉:"+deviceFrameBean.Frame_version);         // 协议版本号
-        System.out.println("🌞:"+deviceFrameBean.Frame_type);            // 协议类型
-        System.out.println("🍉:"+deviceFrameBean.Frame_deviceEncode);    // 设备编码
-        System.out.println("🍉:"+deviceFrameBean.Frame_deviceMAC);       // 设备mac
-        System.out.println("🍉:"+deviceFrameBean.Frame_packetNum);       // 帧序
-        System.out.println("🍉:"+ Arrays.toString(deviceFrameBean.Frame_reserveField));                // 保留字
-        System.out.println("🍉命令:"+deviceFrameBean.Frame_command);     // 命令
-        System.out.println("🍉:"+Arrays.toString(deviceFrameBean.Frame_dataBody));                    // 数据区
-        System.out.println("🍉:"+deviceFrameBean.Frame_CRC16);
+        HanccThingsDataChannelProtocolFrameBean deviceFrameBean = HanccThingsDataChannelProtocolFrameParse.parseFrameData(packet.getData());
+        // System.out.println("要回数据了");
+        // 发报文
+        // String info =  "您好! 已经收到数据了";
+        // this.UDPTestPackage.UDPServer.sendData(info.getBytes(), packet.getAddress(), packet.getPort());
+
+        HanccThingsDataChannelProtocolFrameBean deviceBean = new HanccThingsDataChannelProtocolFrameBean();
+        deviceBean.Frame_flag         = 0x05;
+        deviceBean.Frame_version      = 0x02;
+        deviceBean.Frame_type         = 0xff;
+
+        deviceBean.Frame_deviceEncode = "0102030405060708";
+        deviceBean.Frame_deviceMAC    = "010203040506";
+        deviceBean.Frame_packetNum    = 33554434;
+        deviceBean.Frame_reserveField = new byte[8];
+        deviceBean.Frame_command      = 0x9100;
+        deviceBean.Frame_dataBody     = new byte[]{0x01, 0x02, 0x03, 0x04};
+        byte[] desData = HanccThingsDataChannelProtocolFrameParse.parseFrameBean(deviceBean);
+
+        this.UDPServer.sendData(desData, packet.getAddress(), packet.getPort());
     }
 
     /**
      * 开始业务
      */
     public void startBusiness(){
-        HanccThingsLogger.Debug(TAG,"开始业务");
+        System.out.println("开始业务");
         this.UDPServer.start();
     }
 
@@ -96,7 +110,39 @@ public class HanccThingsUDPManager {
      * 停止业务
      */
     public void stopBusiness(){
-        HanccThingsLogger.Debug(TAG,"停止业务");
+        System.out.println("停止业务");
         this.UDPServer.stopBusiness();
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    /*
+     *  运行HanccThingsUDPManager 中的main方法  启动HanccThingsUDPManager业务(该业务主要是开启服务端接收并解析协议数据并返回指定协议数据)。然后 运行HanccThingsUDPClient 中的main方法启动单纯的客户端测试业务.
+     *
+     * */
+    public static void main(String[] args) {
+        HanccThingsUDPManager.shareInstance().startBusiness();
     }
 }
